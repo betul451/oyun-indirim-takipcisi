@@ -1,0 +1,42 @@
+name: Gunluk Steam Fiyat Toplama
+
+on:
+  schedule:
+    - cron: '15 6 * * *'  # her gün 06:15 UTC = 09:15 Türkiye saati
+  workflow_dispatch:      # elle de çalıştırılabilsin
+
+permissions:
+  contents: write
+
+jobs:
+  topla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Kütüphaneleri kur
+        run: pip install requests
+
+      - name: Fiyatları topla
+        working-directory: ./steam-fiyat
+        run: python steam_toplayici_v2.py
+
+      - name: Veritabanını repoya kaydet
+        working-directory: ./steam-fiyat
+        run: |
+          git config user.name 'fiyat-botu'
+          git config user.email 'fiyat-botu@users.noreply.github.com'
+          git add steam_fiyat_v2.db
+          if git diff --cached --quiet; then
+            echo 'Değişiklik yok'
+          else
+            git commit -m "Günlük fiyat verisi $(date -u +%F)"
+            git pull --rebase --autostash
+            git push
+          fi
